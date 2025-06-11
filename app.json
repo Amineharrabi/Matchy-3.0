@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Matchy",
+    "slug": "matchy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "matchy",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    }
+  }
+}
