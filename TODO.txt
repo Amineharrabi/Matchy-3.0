@@ -1,0 +1,9 @@
+-fix links at music news API 		 #done
+-fix analytics UI			 #done
+-fix dark/light mode
+-hide developer mode nav for non devs               #done
+-add the user image to the welcome screen
+-add the settings functionality
+-add the song liking 
+-fix the monthley listening stats
+-add the browse songs when clicking on a playlist

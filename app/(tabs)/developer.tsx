@@ -1,31 +1,116 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   SafeAreaView,
   TouchableOpacity,
   Alert,
-  TextInput,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { dataStorage } from '../../services/dataStorage';
 import { useSpotify } from '../../hooks/useSpotify';
-import { 
-  Settings, 
-  Database, 
-  Trash2, 
-  Download, 
-  Upload, 
-  Info, 
+import { SpotifyUser } from '../../types/spotify';
+import {
+  Settings,
+  Database,
+  Trash2,
+  Download,
+  Info,
   Shield,
   RefreshCw,
   HardDrive,
 } from 'lucide-react-native';
+import { useAppTheme } from '../../hooks/useAppTheme';
+
+const ERROR_COLOR = '#FF6B35';
+
+interface DeveloperCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  value?: string;
+  onPress?: () => void;
+  color?: string;
+  dangerous?: boolean;
+}
+
+interface Styles {
+  container: ViewStyle;
+  safeArea: ViewStyle;
+  header: ViewStyle;
+  titleContainer: ViewStyle;
+  title: TextStyle;
+  refreshButton: ViewStyle;
+  scrollView: ViewStyle;
+  section: ViewStyle;
+  sectionTitle: TextStyle;
+  devCard: ViewStyle;
+  dangerousCard: ViewStyle;
+  devCardHeader: ViewStyle;
+  devCardIcon: ViewStyle;
+  devCardInfo: ViewStyle;
+  devCardTitle: TextStyle;
+  devCardDescription: TextStyle;
+  devCardValue: TextStyle;
+  dangerousValue: TextStyle;
+  debugData: ViewStyle;
+  debugTitle: TextStyle;
+  debugText: TextStyle;
+  accessDenied: ViewStyle;
+  accessDeniedTitle: TextStyle;
+  accessDeniedText: TextStyle;
+}
+
+const DeveloperCard: React.FC<DeveloperCardProps> = ({
+  icon,
+  title,
+  description,
+  value,
+  onPress,
+  color,
+  dangerous
+}) => {
+  const { colors } = useAppTheme();
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.devCard,
+        {
+          backgroundColor: colors.surface,
+          borderColor: dangerous ? ERROR_COLOR : colors.border,
+        },
+        dangerous && styles.dangerousCard
+      ]}
+    >
+      <View style={styles.devCardHeader}>
+        <View style={[styles.devCardIcon, { backgroundColor: `${color || colors.primary}20` }]}>
+          {icon}
+        </View>
+        <View style={styles.devCardInfo}>
+          <Text style={[styles.devCardTitle, { color: colors.text }]}>{title}</Text>
+          <Text style={[styles.devCardDescription, { color: colors.textSecondary }]}>{description}</Text>
+          {value && (
+            <Text style={[
+              styles.devCardValue,
+              dangerous ? [styles.dangerousValue, { color: ERROR_COLOR }] : { color: colors.text }
+            ]}>
+              {value}
+            </Text>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 export default function DeveloperScreen() {
   const { user } = useSpotify();
+  const { colors } = useAppTheme();
   const [storageSize, setStorageSize] = useState(0);
   const [playlistCount, setPlaylistCount] = useState(0);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
@@ -33,52 +118,46 @@ export default function DeveloperScreen() {
   const [debugMode, setDebugMode] = useState(false);
   const [apiRequestCount, setApiRequestCount] = useState(0);
 
-  useEffect(() => {
-    loadDeveloperData();
-  }, []);
-
   const loadDeveloperData = async () => {
     try {
-      const [size, history, analytics, prefs] = await Promise.all([
-        dataStorage.getStorageSize(),
-        dataStorage.getPlaylistHistory(),
-        dataStorage.getAnalytics(),
-        dataStorage.getPreferences(),
-      ]);
+      const size = await dataStorage.getStorageSize();
+      const playlists = await dataStorage.getData('generatedPlaylists') || [];
+      const analytics = await dataStorage.getAnalytics();
+      const prefs = await dataStorage.getPreferences();
+      const requests = await dataStorage.getData('apiRequestCount') || 0;
 
       setStorageSize(size);
-      setPlaylistCount(history.length);
+      setPlaylistCount(playlists.length);
       setAnalyticsData(analytics);
       setPreferences(prefs);
+      setApiRequestCount(requests);
     } catch (error) {
       console.error('Failed to load developer data:', error);
+      Alert.alert('Error', 'Failed to load developer data');
     }
   };
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const refreshData = async () => {
+    await loadDeveloperData();
   };
 
   const clearAllData = () => {
     Alert.alert(
       'Clear All Data',
-      'This will permanently delete all stored data including playlist history, analytics, and preferences. This action cannot be undone.',
+      'This will delete all locally stored data including playlists, preferences, and analytics. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Clear All',
+          text: 'Clear Data',
           style: 'destructive',
           onPress: async () => {
             try {
               await dataStorage.clearAllData();
               await loadDeveloperData();
-              Alert.alert('Success', 'All data has been cleared.');
+              Alert.alert('Success', 'All data has been cleared');
             } catch (error) {
-              Alert.alert('Error', 'Failed to clear data.');
+              console.error('Failed to clear data:', error);
+              Alert.alert('Error', 'Failed to clear data');
             }
           },
         },
@@ -86,93 +165,29 @@ export default function DeveloperScreen() {
     );
   };
 
-  const exportData = async () => {
-    try {
-      const [history, analytics, prefs] = await Promise.all([
-        dataStorage.getPlaylistHistory(),
-        dataStorage.getAnalytics(),
-        dataStorage.getPreferences(),
-      ]);
-
-      const exportData = {
-        timestamp: new Date().toISOString(),
-        user: user?.id,
-        data: {
-          playlistHistory: history,
-          analytics,
-          preferences: prefs,
-        },
-      };
-
-      // In a real app, you would save this to a file or send to a server
-      console.log('Export Data:', JSON.stringify(exportData, null, 2));
-      Alert.alert('Export Complete', 'Data has been exported to console. In production, this would save to a file.');
-    } catch (error) {
-      Alert.alert('Export Failed', 'Failed to export data.');
-    }
-  };
-
-  const simulateApiRequest = () => {
-    setApiRequestCount(prev => prev + 1);
-    Alert.alert('API Request Simulated', `Total requests: ${apiRequestCount + 1}`);
-  };
-
   const toggleDebugMode = () => {
-    setDebugMode(!debugMode);
-    Alert.alert('Debug Mode', debugMode ? 'Disabled' : 'Enabled');
+    setDebugMode(prev => !prev);
   };
 
-  const DeveloperCard = ({ 
-    icon, 
-    title, 
-    description, 
-    value, 
-    onPress, 
-    color = '#1DB954',
-    dangerous = false 
-  }: {
-    icon: React.ReactNode;
-    title: string;
-    description: string;
-    value?: string;
-    onPress?: () => void;
-    color?: string;
-    dangerous?: boolean;
-  }) => (
-    <TouchableOpacity 
-      onPress={onPress} 
-      style={[styles.devCard, dangerous && styles.dangerousCard]}
-      disabled={!onPress}
-    >
-      <View style={styles.devCardHeader}>
-        <View style={[styles.devCardIcon, { backgroundColor: `${color}20` }]}>
-          {icon}
-        </View>
-        <View style={styles.devCardInfo}>
-          <Text style={styles.devCardTitle}>{title}</Text>
-          <Text style={styles.devCardDescription}>{description}</Text>
-        </View>
-      </View>
-      {value && (
-        <Text style={[styles.devCardValue, dangerous && styles.dangerousValue]}>
-          {value}
-        </Text>
-      )}
-    </TouchableOpacity>
-  );
+  // Helper function to check if user is a developer
+  const checkDeveloperStatus = (user: SpotifyUser | null): boolean => {
+    if (!user?.email) return false;
+    return user.email.endsWith('@matchymusic.com') || user.email === 'admin@example.com';
+  };
 
-  // Check if user is developer
-  const isDeveloper = user?.email === process.env.EXPO_PUBLIC_DEVELOPER_EMAIL;
+  useEffect(() => {
+    loadDeveloperData();
+  }, []);
 
-  if (!isDeveloper) {
+  if (!checkDeveloperStatus(user)) {
     return (
-      <LinearGradient colors={['#000000', '#1a1a1a']} style={styles.container}>
+      <LinearGradient colors={[colors.background, colors.surface]} style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.accessDenied}>
-            <Shield color="#FF6B35" size={64} strokeWidth={1} />
-            <Text style={styles.accessDeniedTitle}>Access Denied</Text>
-            <Text style={styles.accessDeniedText}>
-              This section is only available to authorized developers.
+            <Shield color={colors.textSecondary} size={64} strokeWidth={1} />
+            <Text style={[styles.accessDeniedTitle, { color: colors.text }]}>Access Denied</Text>
+            <Text style={[styles.accessDeniedText, { color: colors.textSecondary }]}>
+              This section is only available to developers.
             </Text>
           </View>
         </SafeAreaView>
@@ -181,131 +196,87 @@ export default function DeveloperScreen() {
   }
 
   return (
-    <LinearGradient colors={['#000000', '#1a1a1a']} style={styles.container}>
+    <LinearGradient colors={[colors.background, colors.surface]} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleContainer}>
-            <Settings color="#FF6B35" size={32} strokeWidth={2} />
-            <Text style={styles.title}>Developer Tools</Text>
+            <Settings color={colors.primary} size={32} strokeWidth={2} />
+            <Text style={[styles.title, { color: colors.text }]}>Developer</Text>
           </View>
-          <TouchableOpacity onPress={loadDeveloperData} style={styles.refreshButton}>
-            <RefreshCw color="#1DB954" size={20} strokeWidth={2} />
+          <TouchableOpacity onPress={refreshData} style={styles.refreshButton}>
+            <RefreshCw color={colors.primary} size={24} strokeWidth={2} />
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* User Info */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Developer Info</Text>
-            <View style={styles.userInfo}>
-              <Text style={styles.userInfoText}>User ID: {user?.id}</Text>
-              <Text style={styles.userInfoText}>Email: {user?.email}</Text>
-              <Text style={styles.userInfoText}>Display Name: {user?.display_name}</Text>
-              <Text style={styles.userInfoText}>Country: {user?.country}</Text>
-            </View>
-          </View>
-
           {/* Storage Management */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Storage Management</Text>
-            
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Storage</Text>
+
             <DeveloperCard
-              icon={<HardDrive color="#1DB954\" size={24} strokeWidth={2} />}
-              title="Storage Usage"
-              description="Total data stored locally"
-              value={formatBytes(storageSize)}
-              color="#1DB954"
+              icon={<Database color={colors.primary} size={24} strokeWidth={2} />}
+              title="Local Storage"
+              description="Current storage usage"
+              value={`${(storageSize / 1024).toFixed(2)} KB`}
+              color={colors.primary}
             />
 
             <DeveloperCard
-              icon={<Database color="#9B59B6\" size={24} strokeWidth={2} />}
-              title="Playlist History"
-              description="Number of generated playlists stored"
+              icon={<HardDrive color={colors.primary} size={24} strokeWidth={2} />}
+              title="Generated Playlists"
+              description="Number of playlists stored"
               value={`${playlistCount} playlists`}
-              color="#9B59B6"
+              color={colors.primary}
             />
 
             <DeveloperCard
-              icon={<Download color="#1ABC9C\" size={24} strokeWidth={2} />}
-              title="Export Data"
-              description="Export all user data for backup"
-              onPress={exportData}
-              color="#1ABC9C"
+              icon={<Download color={colors.primary} size={24} strokeWidth={2} />}
+              title="API Requests"
+              description="Total API requests made"
+              value={`${apiRequestCount} requests`}
+              color={colors.primary}
             />
 
             <DeveloperCard
-              icon={<Trash2 color="#FF6B35\" size={24} strokeWidth={2} />}
+              icon={<Trash2 color={ERROR_COLOR} size={24} strokeWidth={2} />}
               title="Clear All Data"
-              description="Permanently delete all stored data"
+              description="Delete all locally stored data"
               onPress={clearAllData}
-              color="#FF6B35"
               dangerous
             />
           </View>
 
           {/* Debug Tools */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Debug Tools</Text>
-            
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Debug</Text>
+
             <DeveloperCard
-              icon={<Info color="#F39C12\" size={24} strokeWidth={2} />}
+              icon={<Info color={colors.primary} size={24} strokeWidth={2} />}
               title="Debug Mode"
-              description={`Debug mode is ${debugMode ? 'enabled' : 'disabled'}`}
+              description="Toggle debug logging"
+              value={debugMode ? 'Enabled' : 'Disabled'}
               onPress={toggleDebugMode}
-              color="#F39C12"
+              color={colors.primary}
             />
 
-            <DeveloperCard
-              icon={<Upload color="#3498DB\" size={24} strokeWidth={2} />}
-              title="Simulate API Request"
-              description="Test API request handling"
-              value={`${apiRequestCount} requests made`}
-              onPress={simulateApiRequest}
-              color="#3498DB"
-            />
-          </View>
+            {debugMode && (
+              <>
+                <View style={styles.debugData}>
+                  <Text style={[styles.debugTitle, { color: colors.text }]}>User Preferences</Text>
+                  <Text style={[styles.debugText, { color: colors.textSecondary }]}>
+                    {JSON.stringify(preferences, null, 2)}
+                  </Text>
+                </View>
 
-          {/* Analytics Data */}
-          {analyticsData && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Analytics Debug</Text>
-              <View style={styles.debugData}>
-                <Text style={styles.debugTitle}>Raw Analytics Data:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <Text style={styles.debugText}>
+                <View style={styles.debugData}>
+                  <Text style={[styles.debugTitle, { color: colors.text }]}>Analytics Data</Text>
+                  <Text style={[styles.debugText, { color: colors.textSecondary }]}>
                     {JSON.stringify(analyticsData, null, 2)}
                   </Text>
-                </ScrollView>
-              </View>
-            </View>
-          )}
-
-          {/* Preferences */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>User Preferences</Text>
-            <View style={styles.debugData}>
-              <Text style={styles.debugTitle}>Stored Preferences:</Text>
-              <Text style={styles.debugText}>
-                {JSON.stringify(preferences, null, 2)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Environment Info */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Environment</Text>
-            <View style={styles.envInfo}>
-              <Text style={styles.envText}>
-                Spotify Client ID: {process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID?.substring(0, 8)}...
-              </Text>
-              <Text style={styles.envText}>
-                News API Key: {process.env.EXPO_PUBLIC_NEWS_API_KEY ? 'Configured' : 'Not configured'}
-              </Text>
-              <Text style={styles.envText}>
-                Developer Email: {process.env.EXPO_PUBLIC_DEVELOPER_EMAIL}
-              </Text>
-            </View>
+                </View>
+              </>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -313,7 +284,7 @@ export default function DeveloperScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Styles>({
   container: {
     flex: 1,
   },
@@ -326,7 +297,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 10,
+    paddingBottom: 20,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -334,7 +305,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    color: '#FFFFFF',
     fontSize: 28,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
@@ -343,39 +313,35 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(29, 185, 84, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   section: {
-    marginBottom: 32,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
   },
   sectionTitle: {
-    color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: 'bold',
-    fontFamily: 'Inter-Bold',
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     marginBottom: 16,
   },
   devCard: {
-    backgroundColor: '#1a1a1a',
     borderRadius: 12,
-    padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#333',
+    overflow: 'hidden',
   },
   dangerousCard: {
-    borderColor: '#FF6B35',
-    backgroundColor: 'rgba(255, 107, 53, 0.05)',
+    borderWidth: 1,
   },
   devCardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    padding: 16,
+    gap: 16,
   },
   devCardIcon: {
     width: 48,
@@ -383,80 +349,41 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
   devCardInfo: {
     flex: 1,
   },
   devCardTitle: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'Inter-Bold',
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     marginBottom: 4,
   },
   devCardDescription: {
-    color: '#B3B3B3',
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    lineHeight: 20,
+    marginBottom: 4,
   },
   devCardValue: {
-    color: '#1DB954',
-    fontSize: 18,
-    fontWeight: 'bold',
-    fontFamily: 'Inter-Bold',
-    marginTop: 12,
-    textAlign: 'right',
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
   },
   dangerousValue: {
-    color: '#FF6B35',
-  },
-  userInfo: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  userInfoText: {
-    color: '#B3B3B3',
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    marginBottom: 8,
+    fontFamily: 'Inter-SemiBold',
   },
   debugData: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#333',
+    marginVertical: 8,
   },
   debugTitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-    fontFamily: 'Inter-Bold',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     marginBottom: 8,
   },
   debugText: {
-    color: '#B3B3B3',
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 16,
-  },
-  envInfo: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  envText: {
-    color: '#B3B3B3',
     fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    marginBottom: 8,
+    fontFamily: 'monospace',
   },
   accessDenied: {
     flex: 1,
@@ -465,7 +392,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   accessDeniedTitle: {
-    color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
@@ -473,7 +399,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   accessDeniedText: {
-    color: '#666',
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     textAlign: 'center',

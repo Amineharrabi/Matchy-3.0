@@ -11,6 +11,8 @@ import {
     ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Share, Platform } from 'react-native';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useSpotify } from '../../hooks/useSpotify';
 import { dataStorage } from '../../services/dataStorage';
 import {
@@ -21,6 +23,7 @@ import {
     Trash2,
     Volume2,
     Share2,
+    Sun,
     HelpCircle
 } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -39,8 +42,10 @@ interface Setting {
 export default function SettingsScreen() {
     const { logout, user } = useSpotify();
     const [isLoading, setIsLoading] = useState(false);
+    const { isDarkMode, toggleDarkMode, colors } = useTheme();
+
     const [settings, setSettings] = useState<{ [key: string]: boolean }>({
-        darkMode: true,
+        darkMode: isDarkMode,
         notifications: true,
         privateMode: false,
         autoplayEnabled: true
@@ -49,6 +54,13 @@ export default function SettingsScreen() {
     useEffect(() => {
         loadSettings();
     }, []);
+
+    useEffect(() => {
+        setSettings(prev => ({
+            ...prev,
+            darkMode: isDarkMode
+        }));
+    }, [isDarkMode]);
 
     const loadSettings = async () => {
         try {
@@ -66,6 +78,10 @@ export default function SettingsScreen() {
 
     const handleSettingChange = async (settingId: string, value: boolean) => {
         try {
+            if (settingId === 'darkMode') {
+                await toggleDarkMode();
+                return;
+            }
             const newSettings = {
                 ...settings,
                 [settingId]: value
@@ -130,30 +146,31 @@ export default function SettingsScreen() {
         );
     };
 
-    const handleShare = () => {
-        Alert.alert(
-            'Share App',
-            'Share SoundScope with your friends!',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Share',
-                    onPress: () => {
-                        // Implement share functionality
-                        Alert.alert('Coming Soon', 'Share functionality will be available in the next update!');
-                    }
-                }
-            ]
-        );
-    };
+    const handleShare = async () => {
+        try {
+            const result = await Share.share({
+                message: 'Check out Matchy - Discover your next favorite song with AI-powered recommendations! \n\nDownload it at: https://Matchy.tn',
+                title: 'Matchy - AI Music Discovery',
+                url: 'https://Matchy.tn'
+            });
 
+            if (result.action === Share.sharedAction) {
+                console.log('App shared successfully!');
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Could not share at this time. Please try again.');
+            console.error('Share error:', error);
+        }
+    };
     const settingsList: Setting[] = [
         {
             id: 'darkMode',
             title: 'Dark Mode',
             description: 'Use dark theme throughout the app',
             type: 'toggle',
-            icon: <Moon color="#9B59B6" size={24} strokeWidth={2} />,
+            icon: isDarkMode ?
+                <Moon color="#9B59B6" size={24} strokeWidth={2} /> :
+                <Sun color="#9B59B6" size={24} strokeWidth={2} />,
             value: settings.darkMode
         },
         {
@@ -218,17 +235,17 @@ export default function SettingsScreen() {
 
     if (isLoading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#1DB954" />
+            <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
             </View>
         );
     }
 
     return (
-        <LinearGradient colors={['#000000', '#1a1a1a']} style={styles.container}>
+        <LinearGradient colors={[colors.background, colors.surface]} style={styles.container}>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>Settings</Text>
+                    <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
                 </View>
 
                 <ScrollView style={styles.scrollView}>
@@ -237,22 +254,30 @@ export default function SettingsScreen() {
                             key={setting.id}
                             style={[
                                 styles.settingCard,
+                                { backgroundColor: colors.surface, borderColor: colors.border },
                                 setting.dangerous && styles.dangerousCard
                             ]}
                         >
                             <View style={styles.settingHeader}>
-                                <View style={[styles.iconContainer, { backgroundColor: `${setting.dangerous ? 'rgba(255, 107, 53, 0.1)' : 'rgba(29, 185, 84, 0.1)'}` }]}>
+                                <View style={[styles.iconContainer, {
+                                    backgroundColor: setting.dangerous
+                                        ? 'rgba(255, 107, 53, 0.1)'
+                                        : `${colors.primary}20`
+                                }]}
+                                >
                                     {setting.icon}
                                 </View>
                                 <View style={styles.settingContent}>
-                                    <Text style={styles.settingTitle}>{setting.title}</Text>
-                                    <Text style={styles.settingDescription}>{setting.description}</Text>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>{setting.title}</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        {setting.description}
+                                    </Text>
                                 </View>
                                 {setting.type === 'toggle' ? (
                                     <Switch
                                         value={setting.value}
                                         onValueChange={(value) => handleSettingChange(setting.id, value)}
-                                        trackColor={{ false: '#666', true: '#1DB954' }}
+                                        trackColor={{ false: colors.border, true: colors.primary }}
                                         thumbColor={setting.value ? '#FFFFFF' : '#f4f3f4'}
                                     />
                                 ) : (

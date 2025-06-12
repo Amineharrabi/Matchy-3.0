@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Search, X } from 'lucide-react-native';
+import { useAppTheme } from '../hooks/useAppTheme';
 
 interface SearchBarProps {
   placeholder?: string;
@@ -10,6 +11,7 @@ interface SearchBarProps {
 
 export function SearchBar({ placeholder = 'Search...', onSearch, onClear }: SearchBarProps) {
   const [query, setQuery] = useState('');
+  const { colors } = useAppTheme();
 
   const handleSearch = (text: string) => {
     setQuery(text);
@@ -24,12 +26,12 @@ export function SearchBar({ placeholder = 'Search...', onSearch, onClear }: Sear
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <Search color="#666" size={20} style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Search color={colors.textSecondary} size={20} style={styles.searchIcon} />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           placeholder={placeholder}
-          placeholderTextColor="#666"
+          placeholderTextColor={colors.textSecondary}
           value={query}
           onChangeText={handleSearch}
           returnKeyType="search"
@@ -38,7 +40,7 @@ export function SearchBar({ placeholder = 'Search...', onSearch, onClear }: Sear
         />
         {query.length > 0 && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
-            <X color="#666" size={20} />
+            <X color={colors.textSecondary} size={20} />
           </TouchableOpacity>
         )}
       </View>
@@ -53,24 +55,20 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#333',
   },
   searchIcon: {
-    marginRight: 12,
+    marginRight: 8,
   },
   input: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
     fontFamily: 'Inter-Regular',
   },
   clearButton: {
-    marginLeft: 12,
     padding: 4,
   },
 });

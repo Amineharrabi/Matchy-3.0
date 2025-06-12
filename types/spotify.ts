@@ -1,10 +1,12 @@
 export interface SpotifyUser {
   id: string;
   display_name: string;
-  email: string;
-  images: Array<{ url: string; height: number; width: number }>;
-  followers: { total: number };
-  country: string;
+  email?: string;
+  images?: SpotifyImage[];
+  product?: string;
+  country?: string;
+  // Custom flags
+  isDeveloper?: boolean;
 }
 
 export interface SpotifyTrack {
@@ -131,4 +133,10 @@ export interface UserAnalytics {
     listeningTime: number;
     tracksPlayed: number;
   }>;
+}
+
+export interface SpotifyImage {
+  url: string;
+  height?: number | null;
+  width?: number | null;
 }

@@ -44,14 +44,8 @@ class DataStorageService {
     }
   }
 
-  async getAnalytics(): Promise<UserAnalytics | null> {
-    try {
-      const analytics = await AsyncStorage.getItem(this.ANALYTICS_KEY);
-      return analytics ? JSON.parse(analytics) : null;
-    } catch (error) {
-      console.error('Failed to get analytics:', error);
-      return null;
-    }
+  async getAnalytics(): Promise<any> {
+    return this.getData('analytics');
   }
 
   async updateAnalytics(updates: Partial<UserAnalytics>): Promise<void> {
@@ -77,25 +71,26 @@ class DataStorageService {
   }
 
   async getPreferences(): Promise<any> {
-    try {
-      const preferences = await AsyncStorage.getItem(this.PREFERENCES_KEY);
-      return preferences ? JSON.parse(preferences) : {};
-    } catch (error) {
-      console.error('Failed to get preferences:', error);
-      return {};
-    }
+    return this.getData('preferences');
   }
 
   // General Storage Utilities
   async clearAllData(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([
-        this.HISTORY_KEY,
-        this.ANALYTICS_KEY,
-        this.PREFERENCES_KEY,
-      ]);
+      await AsyncStorage.clear();
     } catch (error) {
-      console.error('Failed to clear all data:', error);
+      console.error('Error clearing storage:', error);
+      throw error;
+    }
+  }
+
+  async getData(key: string): Promise<any> {
+    try {
+      const value = await AsyncStorage.getItem(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.error('Error reading from storage:', error);
+      return null;
     }
   }
 
@@ -103,17 +98,17 @@ class DataStorageService {
     try {
       const keys = await AsyncStorage.getAllKeys();
       let totalSize = 0;
-      
+
       for (const key of keys) {
         const value = await AsyncStorage.getItem(key);
         if (value) {
           totalSize += new Blob([value]).size;
         }
       }
-      
+
       return totalSize;
     } catch (error) {
-      console.error('Failed to get storage size:', error);
+      console.error('Error calculating storage size:', error);
       return 0;
     }
   }

@@ -11,34 +11,15 @@ import {
 } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { View } from 'react-native';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { ThemedStatusBar } from '../components/ThemedStatusBar';
+
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* reloading the app might trigger some race conditions, ignore them */
 });
 
-function RootLayoutNav() {
-  const { isLoggedIn } = useSpotify();
-
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {!isLoggedIn ? (
-        <Stack.Screen name="index" />
-      ) : (
-        <>
-          <Stack.Screen 
-            name="(tabs)" 
-            options={{ animation: 'fade' }}
-          />
-          <Stack.Screen 
-            name="+not-found" 
-            options={{ presentation: 'modal' }}
-          />
-        </>
-      )}
-    </Stack>
-  );
-}
 
 export default function RootLayout() {
   const { isLoading: authLoading } = useSpotify();
@@ -89,8 +70,32 @@ export default function RootLayout() {
 
   return (
     <>
-      <RootLayoutNav />
-      <StatusBar style="light" backgroundColor="#000000" />
+      <ThemeProvider>
+        <RootLayoutNav />
+        <ThemedStatusBar />
+      </ThemeProvider>
     </>
+  );
+}
+function RootLayoutNav() {
+  const { isLoggedIn } = useSpotify();
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      {!isLoggedIn ? (
+        <Stack.Screen name="index" />
+      ) : (
+        <>
+          <Stack.Screen
+            name="(tabs)"
+            options={{ animation: 'fade' }}
+          />
+          <Stack.Screen
+            name="+not-found"
+            options={{ presentation: 'modal' }}
+          />
+        </>
+      )}
+    </Stack>
   );
 }

@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import React, { useEffect, useState, useCallback, memo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  ViewStyle,
+  TextStyle,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { dataStorage } from '../../services/dataStorage';
@@ -14,58 +17,178 @@ import { spotifyApi } from '../../services/spotifyApi';
 import { TrackCard } from '../../components/TrackCard';
 import { GeneratedPlaylist } from '../../types/spotify';
 import { History, Calendar, Music, Plus, Trash2, RefreshCw } from 'lucide-react-native';
+import { useAppTheme } from '../../hooks/useAppTheme';
+
+const ERROR_COLOR = '#FF6B35';
+
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+interface Styles {
+  container: ViewStyle;
+  safeArea: ViewStyle;
+  header: ViewStyle;
+  titleContainer: ViewStyle;
+  title: TextStyle;
+  clearButton: ViewStyle;
+  clearButtonText: TextStyle;
+  emptyState: ViewStyle;
+  emptyTitle: TextStyle;
+  emptyText: TextStyle;
+  content: ViewStyle;
+  playlistList: ViewStyle;
+  playlistItem: ViewStyle;
+  selectedPlaylistItem: ViewStyle;
+  playlistHeader: ViewStyle;
+  playlistInfo: ViewStyle;
+  playlistName: TextStyle;
+  playlistMeta: TextStyle;
+  genresContainer: ViewStyle;
+  genreTag: ViewStyle;
+  genreText: TextStyle;
+  moreGenres: TextStyle;
+  playlistActions: ViewStyle;
+  actionButton: ViewStyle;
+  playlistTracks: ViewStyle;
+  tracksTitle: TextStyle;
+  loadingContainer: ViewStyle;
+}
+
+// Memoized TrackCard wrapper
+const MemoizedTrackCard = memo(TrackCard);
+
+// Memoized playlist item component
+const PlaylistItem = memo(({
+  playlist,
+  isSelected,
+  onSelect,
+  onDelete,
+  onCreateSpotifyPlaylist,
+  colors,
+  isLoading
+}: {
+  playlist: GeneratedPlaylist;
+  isSelected: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+  onCreateSpotifyPlaylist: () => void;
+  colors: any;
+  isLoading: boolean;
+}) => (
+  <TouchableOpacity
+    onPress={onSelect}
+    style={[
+      styles.playlistItem,
+      { backgroundColor: colors.surface, borderColor: colors.border },
+      isSelected && [styles.selectedPlaylistItem, { borderColor: colors.primary }]
+    ]}
+  >
+    <View style={styles.playlistHeader}>
+      <View style={styles.playlistInfo}>
+        <Text style={[styles.playlistName, { color: colors.text }]} numberOfLines={1}>
+          {playlist.name}
+        </Text>
+        <Text style={[styles.playlistMeta, { color: colors.textSecondary }]}>
+          {playlist.tracks.length} tracks • {formatDate(playlist.createdAt)}
+        </Text>
+        <View style={styles.genresContainer}>
+          {playlist.genres.slice(0, 3).map((genre) => (
+            <View key={genre} style={[styles.genreTag, { backgroundColor: `${colors.primary}20` }]}>
+              <Text style={[styles.genreText, { color: colors.textSecondary }]}>{genre}</Text>
+            </View>
+          ))}
+          {playlist.genres.length > 3 && (
+            <Text style={[styles.moreGenres, { color: colors.textSecondary }]}>
+              +{playlist.genres.length - 3}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.playlistActions}>
+        <TouchableOpacity
+          onPress={onCreateSpotifyPlaylist}
+          disabled={isLoading}
+          style={[styles.actionButton, { backgroundColor: `${colors.primary}20` }]}
+        >
+          <Plus color={colors.primary} size={20} strokeWidth={2} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onDelete}
+          style={[styles.actionButton, { backgroundColor: `${ERROR_COLOR}20` }]}
+        >
+          <Trash2 color={ERROR_COLOR} size={20} strokeWidth={2} />
+        </TouchableOpacity>
+      </View>
+    </View>
+
+    {isSelected && (
+      <View style={[styles.playlistTracks, { borderTopColor: colors.border }]}>
+        <Text style={[styles.tracksTitle, { color: colors.text }]}>
+          Tracks ({playlist.tracks.length})
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {playlist.tracks.map((track) => (
+            <MemoizedTrackCard key={track.id} track={track} size="small" />
+          ))}
+        </ScrollView>
+      </View>
+    )}
+  </TouchableOpacity>
+));
 
 export default function HistoryScreen() {
   const [playlistHistory, setPlaylistHistory] = useState<GeneratedPlaylist[]>([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState<GeneratedPlaylist | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const { colors } = useAppTheme();
 
-  useEffect(() => {
-    loadHistory();
-  }, []);
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     try {
       const history = await dataStorage.getPlaylistHistory();
       setPlaylistHistory(history);
     } catch (error) {
       console.error('Failed to load history:', error);
+    } finally {
+      setIsInitialLoad(false);
     }
-  };
+  }, []);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
-  const createSpotifyPlaylist = async (generatedPlaylist: GeneratedPlaylist) => {
-    if (generatedPlaylist.tracks.length === 0) {
+  const handleCreateSpotifyPlaylist = useCallback(async (playlist: GeneratedPlaylist) => {
+    if (playlist.tracks.length === 0) {
       Alert.alert('No Tracks', 'This playlist has no tracks to add to Spotify.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const playlist = await spotifyApi.createPlaylist(
-        generatedPlaylist.name,
-        generatedPlaylist.description,
+      const newPlaylist = await spotifyApi.createPlaylist(
+        playlist.name,
+        playlist.description,
         false
       );
-      
-      if (playlist) {
-        const trackUris = generatedPlaylist.tracks.map(track => `spotify:track:${track.id}`);
-        const success = await spotifyApi.addTracksToPlaylist(playlist.id, trackUris);
-        
+
+      if (newPlaylist) {
+        const trackUris = playlist.tracks.map(track => `spotify:track:${track.id}`);
+        const success = await spotifyApi.addTracksToPlaylist(newPlaylist.id, trackUris);
+
         if (success) {
           Alert.alert(
-            'Playlist Created!', 
-            `"${generatedPlaylist.name}" has been added to your Spotify account.`,
+            'Playlist Created!',
+            `"${playlist.name}" has been added to your Spotify account.`,
             [{ text: 'OK', style: 'default' }]
           );
         }
@@ -76,9 +199,9 @@ export default function HistoryScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const deletePlaylist = async (playlistId: string) => {
+  const handleDeletePlaylist = useCallback((playlistId: string) => {
     Alert.alert(
       'Delete Playlist',
       'Are you sure you want to delete this playlist from your history?',
@@ -90,13 +213,10 @@ export default function HistoryScreen() {
           onPress: async () => {
             const updatedHistory = playlistHistory.filter(p => p.id !== playlistId);
             setPlaylistHistory(updatedHistory);
-            
-            // Update storage
             await dataStorage.clearPlaylistHistory();
             for (const playlist of updatedHistory) {
               await dataStorage.savePlaylistToHistory(playlist);
             }
-            
             if (selectedPlaylist?.id === playlistId) {
               setSelectedPlaylist(null);
             }
@@ -104,9 +224,9 @@ export default function HistoryScreen() {
         },
       ]
     );
-  };
+  }, [playlistHistory, selectedPlaylist]);
 
-  const clearAllHistory = async () => {
+  const clearAllHistory = useCallback(() => {
     Alert.alert(
       'Clear All History',
       'Are you sure you want to clear all playlist history? This action cannot be undone.',
@@ -123,94 +243,54 @@ export default function HistoryScreen() {
         },
       ]
     );
-  };
+  }, []);
 
   return (
-    <LinearGradient colors={['#000000', '#1a1a1a']} style={styles.container}>
+    <LinearGradient colors={[colors.background, colors.surface]} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleContainer}>
-            <History color="#FF6B35" size={32} strokeWidth={2} />
-            <Text style={styles.title}>Playlist History</Text>
+            <History color={colors.primary} size={32} strokeWidth={2} />
+            <Text style={[styles.title, { color: colors.text }]}>Playlist History</Text>
           </View>
           {playlistHistory.length > 0 && (
-            <TouchableOpacity onPress={clearAllHistory} style={styles.clearButton}>
-              <Trash2 color="#FF6B35" size={20} strokeWidth={2} />
-              <Text style={styles.clearButtonText}>Clear All</Text>
+            <TouchableOpacity
+              onPress={clearAllHistory}
+              style={[styles.clearButton, { backgroundColor: `${ERROR_COLOR}20` }]}
+            >
+              <Trash2 color={ERROR_COLOR} size={20} strokeWidth={2} />
+              <Text style={[styles.clearButtonText, { color: ERROR_COLOR }]}>Clear All</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {playlistHistory.length === 0 ? (
+        {isInitialLoad ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : playlistHistory.length === 0 ? (
           <View style={styles.emptyState}>
-            <History color="#666" size={64} strokeWidth={1} />
-            <Text style={styles.emptyTitle}>No History Yet</Text>
-            <Text style={styles.emptyText}>
+            <History color={colors.textSecondary} size={64} strokeWidth={1} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No History Yet</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               Generate some music recommendations to see your playlist history here.
             </Text>
           </View>
         ) : (
           <View style={styles.content}>
-            {/* Playlist List */}
             <ScrollView style={styles.playlistList} showsVerticalScrollIndicator={false}>
               {playlistHistory.map((playlist) => (
-                <TouchableOpacity
+                <PlaylistItem
                   key={playlist.id}
-                  onPress={() => setSelectedPlaylist(selectedPlaylist?.id === playlist.id ? null : playlist)}
-                  style={[
-                    styles.playlistItem,
-                    selectedPlaylist?.id === playlist.id && styles.selectedPlaylistItem
-                  ]}
-                >
-                  <View style={styles.playlistHeader}>
-                    <View style={styles.playlistInfo}>
-                      <Text style={styles.playlistName} numberOfLines={1}>
-                        {playlist.name}
-                      </Text>
-                      <Text style={styles.playlistMeta}>
-                        {playlist.tracks.length} tracks • {formatDate(playlist.createdAt)}
-                      </Text>
-                      <View style={styles.genresContainer}>
-                        {playlist.genres.slice(0, 3).map((genre) => (
-                          <View key={genre} style={styles.genreTag}>
-                            <Text style={styles.genreText}>{genre}</Text>
-                          </View>
-                        ))}
-                        {playlist.genres.length > 3 && (
-                          <Text style={styles.moreGenres}>+{playlist.genres.length - 3}</Text>
-                        )}
-                      </View>
-                    </View>
-                    
-                    <View style={styles.playlistActions}>
-                      <TouchableOpacity
-                        onPress={() => createSpotifyPlaylist(playlist)}
-                        disabled={isLoading}
-                        style={styles.actionButton}
-                      >
-                        <Plus color="#1DB954" size={20} strokeWidth={2} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => deletePlaylist(playlist.id)}
-                        style={styles.actionButton}
-                      >
-                        <Trash2 color="#FF6B35" size={20} strokeWidth={2} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  
-                  {selectedPlaylist?.id === playlist.id && (
-                    <View style={styles.playlistTracks}>
-                      <Text style={styles.tracksTitle}>Tracks ({playlist.tracks.length})</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {playlist.tracks.map((track) => (
-                          <TrackCard key={track.id} track={track} size="small" />
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                  playlist={playlist}
+                  isSelected={selectedPlaylist?.id === playlist.id}
+                  onSelect={() => setSelectedPlaylist(selectedPlaylist?.id === playlist.id ? null : playlist)}
+                  onDelete={() => handleDeletePlaylist(playlist.id)}
+                  onCreateSpotifyPlaylist={() => handleCreateSpotifyPlaylist(playlist)}
+                  colors={colors}
+                  isLoading={isLoading}
+                />
               ))}
             </ScrollView>
           </View>
@@ -220,7 +300,7 @@ export default function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Styles>({
   container: {
     flex: 1,
   },
@@ -241,7 +321,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    color: '#FFFFFF',
     fontSize: 28,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
@@ -253,10 +332,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 107, 53, 0.1)',
   },
   clearButtonText: {
-    color: '#FF6B35',
     fontSize: 12,
     fontWeight: '600',
     fontFamily: 'Inter-SemiBold',
@@ -268,7 +345,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
@@ -276,7 +352,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   emptyText: {
-    color: '#666',
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
@@ -290,16 +365,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   playlistItem: {
-    backgroundColor: '#1a1a1a',
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#333',
     overflow: 'hidden',
   },
-  selectedPlaylistItem: {
-    borderColor: '#1DB954',
-  },
+  selectedPlaylistItem: {},
   playlistHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -309,14 +380,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   playlistName: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
     marginBottom: 4,
   },
   playlistMeta: {
-    color: '#B3B3B3',
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     marginBottom: 8,
@@ -328,19 +397,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   genreTag: {
-    backgroundColor: '#333',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   genreText: {
-    color: '#B3B3B3',
     fontSize: 12,
     fontFamily: 'Inter-Regular',
     textTransform: 'capitalize',
   },
   moreGenres: {
-    color: '#666',
     fontSize: 12,
     fontFamily: 'Inter-Regular',
   },
@@ -352,20 +418,22 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#333',
     justifyContent: 'center',
     alignItems: 'center',
   },
   playlistTracks: {
     borderTopWidth: 1,
-    borderTopColor: '#333',
     padding: 16,
   },
   tracksTitle: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter-SemiBold',
     marginBottom: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

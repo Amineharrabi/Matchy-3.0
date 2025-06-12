@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   SafeAreaView,
   Dimensions,
   TouchableOpacity,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSpotify } from '../../hooks/useSpotify';
@@ -15,11 +17,55 @@ import { dataStorage } from '../../services/dataStorage';
 import { TrackCard } from '../../components/TrackCard';
 import { SpotifyTrack, SpotifyArtist, UserAnalytics } from '../../types/spotify';
 import { BarChart3, TrendingUp, Music, Users, Clock, RefreshCw } from 'lucide-react-native';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 const { width } = Dimensions.get('window');
 
+interface Styles {
+  container: ViewStyle;
+  safeArea: ViewStyle;
+  header: ViewStyle;
+  titleContainer: ViewStyle;
+  title: TextStyle;
+  refreshButton: ViewStyle;
+  spinning: ViewStyle;
+  scrollView: ViewStyle;
+  section: ViewStyle;
+  sectionTitle: TextStyle;
+  statsGrid: ViewStyle;
+  statCard: ViewStyle;
+  statHeader: ViewStyle;
+  statTitle: TextStyle;
+  statValue: TextStyle;
+  statSubtitle: TextStyle;
+  genresContainer: ViewStyle;
+  genreItem: ViewStyle;
+  genreRank: TextStyle;
+  genreName: TextStyle;
+  genreCount: TextStyle;
+  timeRangeSelector: ViewStyle;
+  timeRangeButton: ViewStyle;
+  timeRangeText: TextStyle;
+  activeTimeRangeButton: ViewStyle;
+  activeTimeRangeText: TextStyle;
+  artistsList: ViewStyle;
+  artistItem: ViewStyle;
+  artistRank: TextStyle;
+  artistInfo: ViewStyle;
+  artistName: TextStyle;
+  artistGenres: TextStyle;
+  artistPopularity: TextStyle;
+  monthlyStats: ViewStyle;
+  monthlyStatItem: ViewStyle;
+  monthlyStatMonth: TextStyle;
+  monthlyStatTime: TextStyle;
+  monthlyStatTracks: TextStyle;
+  errorText: TextStyle;
+}
+
 export default function AnalyticsScreen() {
   const { isLoggedIn } = useSpotify();
+  const { colors } = useAppTheme();
   const [topTracks, setTopTracks] = useState<{
     short: SpotifyTrack[];
     medium: SpotifyTrack[];
@@ -43,7 +89,7 @@ export default function AnalyticsScreen() {
   const loadAnalyticsData = async () => {
     try {
       setIsRefreshing(true);
-      
+
       // Load top tracks and artists for all time ranges
       const [
         shortTermTracks,
@@ -76,7 +122,7 @@ export default function AnalyticsScreen() {
       // Generate analytics data
       const analyticsData = await generateAnalytics(mediumTermTracks, mediumTermArtists);
       setAnalytics(analyticsData);
-      
+
       // Save analytics to storage
       await dataStorage.saveAnalytics(analyticsData);
     } catch (error) {
@@ -134,27 +180,29 @@ export default function AnalyticsScreen() {
     long: 'All time',
   };
 
-  const StatCard = ({ icon, title, value, subtitle, color = '#1DB954' }: {
+  const StatCard = ({ icon, title, value, subtitle, color = colors.primary }: {
     icon: React.ReactNode;
     title: string;
     value: string;
     subtitle?: string;
     color?: string;
   }) => (
-    <View style={[styles.statCard, { borderLeftColor: color }]}>
+    <View style={[styles.statCard, { borderLeftColor: color, backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.statHeader}>
         {icon}
-        <Text style={styles.statTitle}>{title}</Text>
+        <Text style={[styles.statTitle, { color: colors.textSecondary }]}>{title}</Text>
       </View>
-      <Text style={styles.statValue}>{value}</Text>
-      {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
+      {subtitle && <Text style={[styles.statSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text>}
     </View>
   );
 
   if (!isLoggedIn) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Please log in to access your analytics.</Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.primary }]}>
+          Please log in to access your analytics.
+        </Text>
       </View>
     );
   }
@@ -163,20 +211,23 @@ export default function AnalyticsScreen() {
   const currentArtists = topArtists[selectedTimeRange];
 
   return (
-    <LinearGradient colors={['#000000', '#1a1a1a']} style={styles.container}>
+    <LinearGradient colors={[colors.background, colors.surface]} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleContainer}>
-            <BarChart3 color="#9B59B6" size={32} strokeWidth={2} />
-            <Text style={styles.title}>Your Analytics</Text>
+            <BarChart3 color={colors.primary} size={32} strokeWidth={2} />
+            <Text style={[styles.title, { color: colors.text }]}>Your Analytics</Text>
           </View>
-          <TouchableOpacity onPress={loadAnalyticsData} disabled={isRefreshing} style={styles.refreshButton}>
-            <RefreshCw 
-              color="#1DB954" 
-              size={20} 
-              strokeWidth={2} 
-              style={[isRefreshing && styles.spinning]} 
+          <TouchableOpacity
+            onPress={loadAnalyticsData}
+            disabled={isRefreshing}
+            style={[styles.refreshButton, { backgroundColor: `${colors.primary}20` }]}
+          >
+            <RefreshCw
+              color={colors.primary}
+              size={20}
+              strokeWidth={2}
             />
           </TouchableOpacity>
         </View>
@@ -185,14 +236,13 @@ export default function AnalyticsScreen() {
           {/* Overview Stats */}
           {analytics && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Overview</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Overview</Text>
               <View style={styles.statsGrid}>
                 <StatCard
-                  icon={<Clock color="#1DB954" size={20} strokeWidth={2} />}
+                  icon={<Clock color={colors.primary} size={20} strokeWidth={2} />}
                   title="Listening Time"
                   value={`${Math.floor(analytics.totalListeningTime / 60)}h ${analytics.totalListeningTime % 60}m`}
                   subtitle="Total music listened"
-                  color="#1DB954"
                 />
                 <StatCard
                   icon={<Music color="#FF6B35" size={20} strokeWidth={2} />}
@@ -222,13 +272,21 @@ export default function AnalyticsScreen() {
           {/* Top Genres */}
           {analytics && analytics.topGenres.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Top Genres</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Genres</Text>
               <View style={styles.genresContainer}>
                 {analytics.topGenres.slice(0, 8).map((item, index) => (
-                  <View key={item.genre} style={styles.genreItem}>
-                    <Text style={styles.genreRank}>#{index + 1}</Text>
-                    <Text style={styles.genreName}>{item.genre}</Text>
-                    <Text style={styles.genreCount}>{item.count} artists</Text>
+                  <View
+                    key={item.genre}
+                    style={[styles.genreItem, {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border
+                    }]}
+                  >
+                    <Text style={[styles.genreRank, { color: colors.primary }]}>#{index + 1}</Text>
+                    <Text style={[styles.genreName, { color: colors.text }]}>{item.genre}</Text>
+                    <Text style={[styles.genreCount, { color: colors.textSecondary }]}>
+                      {item.count} artists
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -237,21 +295,24 @@ export default function AnalyticsScreen() {
 
           {/* Time Range Selector */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Listening History</Text>
-            <View style={styles.timeRangeSelector}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Listening History</Text>
+            <View style={[styles.timeRangeSelector, { backgroundColor: colors.surface }]}>
               {Object.entries(timeRangeLabels).map(([key, label]) => (
                 <TouchableOpacity
                   key={key}
                   onPress={() => setSelectedTimeRange(key as any)}
                   style={[
                     styles.timeRangeButton,
-                    selectedTimeRange === key && styles.activeTimeRangeButton
+                    selectedTimeRange === key && { backgroundColor: colors.primary }
                   ]}
                 >
-                  <Text style={[
-                    styles.timeRangeText,
-                    selectedTimeRange === key && styles.activeTimeRangeText
-                  ]}>
+                  <Text
+                    style={[
+                      styles.timeRangeText,
+                      { color: colors.textSecondary },
+                      selectedTimeRange === key && { color: colors.text }
+                    ]}
+                  >
                     {label}
                   </Text>
                 </TouchableOpacity>
@@ -261,7 +322,7 @@ export default function AnalyticsScreen() {
 
           {/* Top Tracks */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Top Tracks</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Tracks</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {currentTracks.slice(0, 10).map((track) => (
                 <TrackCard key={track.id} track={track} size="small" />
@@ -271,18 +332,24 @@ export default function AnalyticsScreen() {
 
           {/* Top Artists */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Top Artists</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Artists</Text>
             <View style={styles.artistsList}>
               {currentArtists.slice(0, 10).map((artist, index) => (
-                <View key={artist.id} style={styles.artistItem}>
-                  <Text style={styles.artistRank}>#{index + 1}</Text>
+                <View
+                  key={artist.id}
+                  style={[styles.artistItem, {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border
+                  }]}
+                >
+                  <Text style={[styles.artistRank, { color: colors.primary }]}>#{index + 1}</Text>
                   <View style={styles.artistInfo}>
-                    <Text style={styles.artistName}>{artist.name}</Text>
-                    <Text style={styles.artistGenres}>
+                    <Text style={[styles.artistName, { color: colors.text }]}>{artist.name}</Text>
+                    <Text style={[styles.artistGenres, { color: colors.textSecondary }]}>
                       {artist.genres.slice(0, 2).join(', ')}
                     </Text>
                   </View>
-                  <Text style={styles.artistPopularity}>
+                  <Text style={[styles.artistPopularity, { color: colors.textSecondary }]}>
                     {artist.popularity}% popularity
                   </Text>
                 </View>
@@ -291,18 +358,26 @@ export default function AnalyticsScreen() {
           </View>
 
           {/* Monthly Stats */}
-          {analytics && (
+          {analytics && analytics.monthlyStats && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Monthly Trends</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Monthly Trends</Text>
               <View style={styles.monthlyStats}>
-                {analytics.monthlyStats.map((stat) => (
-                  <View key={stat.month} style={styles.monthlyStatItem}>
-                    <Text style={styles.monthlyStatMonth}>{stat.month}</Text>
-                    <Text style={styles.monthlyStatTime}>
-                      {Math.floor(stat.listeningTime / 60)}h {stat.listeningTime % 60}m
+                {Object.values(analytics.monthlyStats).map((monthStat) => (
+                  <View
+                    key={monthStat.month}
+                    style={[styles.monthlyStatItem, {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border
+                    }]}
+                  >
+                    <Text style={[styles.monthlyStatMonth, { color: colors.textSecondary }]}>
+                      {monthStat.month}
                     </Text>
-                    <Text style={styles.monthlyStatTracks}>
-                      {stat.tracksPlayed} tracks
+                    <Text style={[styles.monthlyStatTime, { color: colors.text }]}>
+                      {Math.floor(monthStat.listeningTime / 60)}h {monthStat.listeningTime % 60}m
+                    </Text>
+                    <Text style={[styles.monthlyStatTracks, { color: colors.textSecondary }]}>
+                      {monthStat.tracksPlayed} tracks
                     </Text>
                   </View>
                 ))}
@@ -315,7 +390,7 @@ export default function AnalyticsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Styles>({
   container: {
     flex: 1,
   },
@@ -336,7 +411,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    color: '#FFFFFF',
     fontSize: 28,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
@@ -345,7 +419,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(29, 185, 84, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -360,7 +433,6 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionTitle: {
-    color: '#FFFFFF',
     fontSize: 20,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
@@ -374,11 +446,9 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: (width - 52) / 2,
-    backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#1DB954',
   },
   statHeader: {
     flexDirection: 'row',
@@ -387,19 +457,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statTitle: {
-    color: '#B3B3B3',
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Inter-Regular',
   },
   statValue: {
-    color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
     marginBottom: 4,
   },
   statSubtitle: {
-    color: '#666',
     fontSize: 12,
     fontFamily: 'Inter-Regular',
   },
@@ -411,20 +478,17 @@ const styles = StyleSheet.create({
   genreItem: {
     flex: 1,
     minWidth: (width - 52) / 2,
-    backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
   },
   genreRank: {
-    color: '#1DB954',
     fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
     marginBottom: 4,
   },
   genreName: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter-SemiBold',
@@ -433,13 +497,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   genreCount: {
-    color: '#666',
     fontSize: 12,
     fontFamily: 'Inter-Regular',
   },
   timeRangeSelector: {
     flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 4,
     marginBottom: 16,
@@ -451,17 +513,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
-  activeTimeRangeButton: {
-    backgroundColor: '#1DB954',
-  },
   timeRangeText: {
-    color: '#666',
     fontSize: 14,
     fontWeight: '500',
     fontFamily: 'Inter-Medium',
   },
+  activeTimeRangeButton: {
+    backgroundColor: undefined, // Will be overridden by inline style
+  },
   activeTimeRangeText: {
-    color: '#FFFFFF',
     fontWeight: 'bold',
   },
   artistsList: {
@@ -470,12 +530,10 @@ const styles = StyleSheet.create({
   artistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 16,
   },
   artistRank: {
-    color: '#1DB954',
     fontSize: 16,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
@@ -486,19 +544,16 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   artistName: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter-SemiBold',
     marginBottom: 2,
   },
   artistGenres: {
-    color: '#B3B3B3',
     fontSize: 12,
     fontFamily: 'Inter-Regular',
   },
   artistPopularity: {
-    color: '#666',
     fontSize: 12,
     fontFamily: 'Inter-Regular',
   },
@@ -510,31 +565,26 @@ const styles = StyleSheet.create({
   monthlyStatItem: {
     flex: 1,
     minWidth: (width - 52) / 3,
-    backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
   },
   monthlyStatMonth: {
-    color: '#B3B3B3',
     fontSize: 12,
     fontFamily: 'Inter-Regular',
     marginBottom: 4,
   },
   monthlyStatTime: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
     marginBottom: 2,
   },
   monthlyStatTracks: {
-    color: '#666',
     fontSize: 11,
     fontFamily: 'Inter-Regular',
   },
   errorText: {
-    color: '#FF6B35',
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     textAlign: 'center',

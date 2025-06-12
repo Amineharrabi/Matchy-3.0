@@ -9,6 +9,7 @@ import {
 } from 'lucide-react-native';
 import { useSpotify } from '../../hooks/useSpotify';
 import { useEffect, memo } from 'react';
+import { Platform } from 'react-native';
 
 function TabLayout() {
   const { user, isLoggedIn } = useSpotify();
@@ -33,12 +34,14 @@ function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        lazy: true,
+        freezeOnBlur: true,
         tabBarStyle: {
           backgroundColor: '#000000',
           borderTopColor: '#333',
           borderTopWidth: 1,
-          height: 90,
-          paddingBottom: 20,
+          height: Platform.OS === 'ios' ? 70 : 60,
+          paddingBottom: Platform.OS === 'ios' ? 20 : 10,
           paddingTop: 10,
         },
         tabBarActiveTintColor: '#1DB954',
@@ -48,6 +51,14 @@ function TabLayout() {
           fontFamily: 'Inter-Medium',
           fontWeight: '500',
         },
+        tabBarIconStyle: {
+          width: 24,
+          height: 24,
+        },
+        tabBarShowLabel: true,
+        tabBarHideOnKeyboard: true,
+        // Improve transition performance
+        animation: 'none',
       }}
     >
       <Tabs.Screen
@@ -103,6 +114,7 @@ function TabLayout() {
             tabBarIcon: ({ size, color }) => (
               <Shield size={size} color={color} strokeWidth={2} />
             ),
+            href: isDeveloper ? '/developer' : null,
           }}
         />
       )}
