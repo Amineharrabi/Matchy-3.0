@@ -445,6 +445,7 @@ const styles = StyleSheet.create<Styles>({
     fontFamily: 'Inter-SemiBold',
     marginBottom: 12,
     paddingHorizontal: 4,
+    marginLeft: 3,
   },
   moodChip: {
     paddingHorizontal: 16,

@@ -1,5 +1,3 @@
 
--add the user image to the welcome screen    #done
 -add the song liking 
 -fix the monthley listening stats
--add the browse songs when clicking on a playlist

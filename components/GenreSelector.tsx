@@ -58,6 +58,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
     marginBottom: 12,
+    marginLeft:5,
   },
   scrollContent: {
     paddingHorizontal: 4,
@@ -72,6 +73,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
     minWidth: 80,
     alignItems: 'center',
+  
   },
   selectedChip: {
     backgroundColor: '#1DB954',
