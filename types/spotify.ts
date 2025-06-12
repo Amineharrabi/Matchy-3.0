@@ -5,7 +5,6 @@ export interface SpotifyUser {
   images?: SpotifyImage[];
   product?: string;
   country?: string;
-  // Custom flags
   isDeveloper?: boolean;
 }
 

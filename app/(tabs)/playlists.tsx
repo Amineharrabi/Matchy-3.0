@@ -117,7 +117,12 @@ export default function PlaylistsScreen() {
       if (refresh) {
         setSavedTracks(tracks);
       } else {
-        setSavedTracks(prev => [...prev, ...tracks]);
+        // Add only new tracks that aren't already in the list
+        setSavedTracks(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTracks = tracks.filter(track => !existingIds.has(track.id));
+          return [...prev, ...newTracks];
+        });
       }
       setPage(prev => prev + 1);
     } catch (error) {
@@ -305,8 +310,8 @@ export default function PlaylistsScreen() {
             <View style={styles.content}>
               {filteredTracks.length > 0 ? (
                 <View style={styles.tracksList}>
-                  {filteredTracks.map((track) => (
-                    <TrackCard key={track.id} track={track} size="large" />
+                  {filteredTracks.map((track, index) => (
+                    <TrackCard key={`${track.id}-${index}`} track={track} size="large" />
                   ))}
                 </View>
               ) : (

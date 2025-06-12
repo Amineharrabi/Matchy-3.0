@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SpotifyPlaylist } from '../types/spotify';
 import { Play, Music } from 'lucide-react-native';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { router } from 'expo-router';
 
 interface PlaylistCardProps {
   playlist: SpotifyPlaylist;
@@ -12,10 +13,20 @@ interface PlaylistCardProps {
 
 export function PlaylistCard({ playlist, onPress, size = 'medium' }: PlaylistCardProps) {
   const { colors } = useAppTheme();
-  // Handle null or  undefined playlist
   if (!playlist) {
     return null;
   }
+
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else {
+      router.push({
+        pathname: "/(playlist)/[id]",
+        params: { id: playlist.id.toString() }
+      } as any);
+    }
+  };
 
   const imageUrl = playlist.images?.[0]?.url || 'https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg';
 
@@ -36,7 +47,7 @@ export function PlaylistCard({ playlist, onPress, size = 'medium' }: PlaylistCar
 
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={handlePress}
       style={[
         styles.card,
         cardStyles[size],

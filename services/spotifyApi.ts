@@ -39,6 +39,10 @@ class SpotifyApiService {
     return response?.items || [];
   }
 
+  async getPlaylist(playlistId: string): Promise<SpotifyPlaylist | null> {
+    return this.makeRequest<SpotifyPlaylist>(`/playlists/${playlistId}`);
+  }
+
   async getPlaylistTracks(playlistId: string, limit: number = 100): Promise<SpotifyTrack[]> {
     const response = await this.makeRequest<{ items: Array<{ track: SpotifyTrack }> }>(`/playlists/${playlistId}/tracks?limit=${limit}`);
     return response?.items.map(item => item.track) || [];
@@ -66,7 +70,7 @@ class SpotifyApiService {
 
   async getRecommendations(seeds: RecommendationSeed): Promise<SpotifyTrack[]> {
     const params = new URLSearchParams();
-    
+
     Object.entries(seeds).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         if (Array.isArray(value)) {

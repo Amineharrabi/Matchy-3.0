@@ -91,6 +91,10 @@ function RootLayoutNav() {
             options={{ animation: 'fade' }}
           />
           <Stack.Screen
+            name="(playlist)"
+            options={{ animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
             name="+not-found"
             options={{ presentation: 'modal' }}
           />
