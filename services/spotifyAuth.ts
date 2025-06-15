@@ -13,11 +13,18 @@ const SPOTIFY_CLIENT_SECRET = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_SECRET;
 // Define all possible redirect URIs
 const REDIRECT_URIS = {
   EXPO_PROXY: 'https://auth.expo.io/@amineharrabi/matchy',
-  DEVELOPMENT: 'exp://192.168.1.8:8081/spotify-auth-callback',
+  DEVELOPMENT: process.env.EXPO_PUBLIC_SPOTIFY_REDIRECT_URI || 'exp://192.168.1.8:8081/spotify-auth-callback',
   PRODUCTION: 'matchy://spotify-auth-callback'
 };
 
 const getBasicAuth = () => {
+  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+    console.error('Missing client credentials:', {
+      clientId: SPOTIFY_CLIENT_ID,
+      clientSecret: SPOTIFY_CLIENT_SECRET
+    });
+    throw new Error('Missing Spotify client credentials');
+  }
   return base64Encode(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`);
 };
 
@@ -36,6 +43,13 @@ const REDIRECT_URI = getRedirectUri();
 
 console.log('Development mode:', __DEV__);
 console.log('Using Redirect URI:', REDIRECT_URI);
+console.log('Client ID loaded:', !!SPOTIFY_CLIENT_ID);
+console.log('Client Secret loaded:', !!SPOTIFY_CLIENT_SECRET);
+console.log('Environment variables:', {
+  SPOTIFY_CLIENT_ID,
+  SPOTIFY_CLIENT_SECRET,
+  REDIRECT_URI
+});
 
 
 const discovery = {
@@ -227,50 +241,63 @@ export class SpotifyAuth {
   }
 
   private async refreshAccessToken(): Promise<boolean> {
-    if (!this.refreshToken) return false;
-
     try {
+      if (!this.refreshToken) {
+        console.log('No refresh token available');
+        await this.clearTokens();
+        return false;
+      }
+
+      const params = new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: this.refreshToken,
+        client_id: SPOTIFY_CLIENT_ID!,
+      });
+
       const response = await fetch('https://accounts.spotify.com/api/token', {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${getBasicAuth()}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: this.refreshToken,
-          client_id: SPOTIFY_CLIENT_ID!,
-        }).toString(),
+        body: params.toString(),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Token refresh failed:', errorData);
-        return false;
+        const error = await response.json();
+        console.error('Token refresh failed:', error);
+
+        if (response.status === 401) {
+          // If refresh token is invalid, clear tokens and require re-login
+          await this.clearTokens();
+          return false;
+        }
+
+        throw new Error(`Token refresh failed: ${JSON.stringify(error)}`);
       }
 
       const data = await response.json();
-      if (data.access_token) {
-        await this.storeTokens({
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token || this.refreshToken,
-          expiresIn: data.expires_in,
-        });
-        return true;
-      }
-      return false;
+
+      // Store new tokens, keeping the existing refresh token if a new one wasn't provided
+      await this.storeTokens({
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token || this.refreshToken,
+        expiresIn: data.expires_in
+      });
+
+      return true;
     } catch (error) {
-      console.error('Token refresh error:', error);
+      console.error('Failed to refresh token:', error);
+      await this.clearTokens();
       return false;
     }
   }
 
-  async logout() {
+  async clearTokens(): Promise<void> {
     try {
       this.accessToken = null;
       this.refreshToken = null;
       this.expiryTime = null;
-      this.initialized = false;
 
       await Promise.all([
         SecureStore.deleteItemAsync('spotify_access_token'),
@@ -278,9 +305,12 @@ export class SpotifyAuth {
         SecureStore.deleteItemAsync('spotify_expiry_time')
       ]);
     } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
+      console.error('Failed to clear tokens:', error);
     }
+  }
+
+  async logout(): Promise<void> {
+    await this.clearTokens();
   }
 
   isLoggedIn(): boolean {

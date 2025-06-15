@@ -23,11 +23,21 @@ class NewsApiService {
       const response = await fetch(`${this.baseUrl}?${params}`);
 
       if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 402) {
+          console.warn('News API subscription required. Using sample news instead.');
+          return this.getSampleNews();
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
+      if (!data?.data?.length) {
+        console.warn('No news articles found. Using sample news instead.');
+        return this.getSampleNews();
+      }
+
       return data.data.map((article: any, index: number) => ({
         id: article.uuid || `news-${index}`,
         title: article.title,
@@ -38,7 +48,7 @@ class NewsApiService {
         source: article.source,
       }));
     } catch (error) {
-      console.error('Failed to fetch music news:', error);
+      console.warn('Failed to fetch music news, using sample news instead:', error);
       return this.getSampleNews();
     }
   }

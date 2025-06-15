@@ -10,35 +10,29 @@ export const MUSIC_GENRES = [
 
 export const MOOD_PRESETS = {
   happy: {
+    seed_genres: ['pop', 'dance'],
     target_valence: 0.8,
     target_energy: 0.7,
     target_danceability: 0.8,
   },
   sad: {
+    seed_genres: ['blues', 'jazz'],
     target_valence: 0.2,
     target_energy: 0.3,
     target_acousticness: 0.6,
   },
   energetic: {
+    seed_genres: ['rock', 'metal'],
     target_energy: 0.9,
     target_danceability: 0.8,
     target_tempo: 130,
   },
-  chill: {
+  relaxed: {
+    seed_genres: ['ambient', 'chill'],
     target_energy: 0.3,
     target_valence: 0.5,
     target_acousticness: 0.7,
-  },
-  focus: {
-    target_instrumentalness: 0.8,
-    target_energy: 0.4,
-    target_speechiness: 0.1,
-  },
-  workout: {
-    target_energy: 0.9,
-    target_tempo: 140,
-    target_danceability: 0.8,
-  },
+  }
 };
 
 export const GENRE_COLORS: { [key: string]: string } = {

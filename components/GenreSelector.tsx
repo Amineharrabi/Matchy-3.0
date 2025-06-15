@@ -4,27 +4,37 @@ import { MUSIC_GENRES, GENRE_COLORS } from '../constants/genres';
 
 interface GenreSelectorProps {
   selectedGenres: string[];
-  onGenreToggle: (genre: string) => void;
+  onGenresChange: (genres: string[]) => void;
+  style?: any;
   maxSelection?: number;
 }
 
-export function GenreSelector({ selectedGenres, onGenreToggle, maxSelection = 5 }: GenreSelectorProps) {
+export function GenreSelector({ selectedGenres, onGenresChange, style, maxSelection = 5 }: GenreSelectorProps) {
+  const handleGenreToggle = (genre: string) => {
+    const isSelected = selectedGenres.includes(genre);
+    if (isSelected) {
+      onGenresChange(selectedGenres.filter(g => g !== genre));
+    } else if (selectedGenres.length < maxSelection) {
+      onGenresChange([...selectedGenres, genre]);
+    }
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <Text style={styles.title}>Select Genres ({selectedGenres.length}/{maxSelection})</Text>
-      <ScrollView 
-        horizontal 
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         {MUSIC_GENRES.map((genre) => {
           const isSelected = selectedGenres.includes(genre);
           const canSelect = selectedGenres.length < maxSelection || isSelected;
-          
+
           return (
             <TouchableOpacity
               key={genre}
-              onPress={() => canSelect && onGenreToggle(genre)}
+              onPress={() => canSelect && handleGenreToggle(genre)}
               style={[
                 styles.genreChip,
                 isSelected && styles.selectedChip,
@@ -58,7 +68,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
     marginBottom: 12,
-    marginLeft:5,
+    marginLeft: 5,
   },
   scrollContent: {
     paddingHorizontal: 4,
@@ -73,7 +83,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
     minWidth: 80,
     alignItems: 'center',
-  
+
   },
   selectedChip: {
     backgroundColor: '#1DB954',

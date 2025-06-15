@@ -17,6 +17,8 @@ export interface SpotifyTrack {
   external_urls: { spotify: string };
   preview_url: string | null;
   popularity: number;
+  is_playable?: boolean; // Some tracks may not have this property, so we make it optional
+  available_markets?: string[];
 }
 
 export interface SpotifyArtist {
@@ -138,4 +140,13 @@ export interface SpotifyImage {
   url: string;
   height?: number | null;
   width?: number | null;
+}
+
+export interface MoodPreset {
+  seed_genres?: string[];
+  target_valence?: number;
+  target_energy?: number;
+  target_danceability?: number;
+  target_acousticness?: number;
+  target_tempo?: number;
 }

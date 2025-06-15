@@ -1,5 +1,5 @@
 {
-  "name": "spotify-music-recommender",
+  "name": "matchy",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -15,7 +15,9 @@
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@types/base-64": "^1.0.2",
+    "axios": "^1.10.0",
     "base-64": "^1.0.0",
+    "dotenv": "^16.5.0",
     "expo": "^53.0.0",
     "expo-auth-session": "~6.2.0",
     "expo-blur": "~14.1.5",
@@ -36,6 +38,7 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.3",
+    "react-native-dotenv": "^3.4.11",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",

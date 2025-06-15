@@ -10,8 +10,10 @@ interface ThemeContextType {
         surface: string;
         text: string;
         textSecondary: string;
+        textLight: string;
         primary: string;
         border: string;
+        error: string;
     };
 }
 
@@ -20,8 +22,10 @@ const lightTheme = {
     surface: '#F5F5F5',
     text: '#000000',
     textSecondary: '#666666',
+    textLight: '#FFFFFF',
     primary: '#1DB954',
     border: '#E0E0E0',
+    error: '#FF3B30',
 };
 
 const darkTheme = {
@@ -29,8 +33,10 @@ const darkTheme = {
     surface: '#1A1A1A',
     text: '#FFFFFF',
     textSecondary: '#CCCCCC',
+    textLight: '#FFFFFF',
     primary: '#1DB954',
     border: '#333333',
+    error: '#FF453A',
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

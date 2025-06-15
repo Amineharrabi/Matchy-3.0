@@ -112,6 +112,39 @@ class DataStorageService {
       return 0;
     }
   }
+
+  // Extended History Management
+  async appendToHistory(type: string, entry: any): Promise<void> {
+    try {
+      const historyKey = `${type}_history`;
+      const history = await AsyncStorage.getItem(historyKey);
+      const existingHistory = history ? JSON.parse(history) : [];
+      const updatedHistory = [entry, ...existingHistory.slice(0, 49)]; // Keep last 50 entries
+      await AsyncStorage.setItem(historyKey, JSON.stringify(updatedHistory));
+    } catch (error) {
+      console.error(`Failed to append to ${type} history:`, error);
+    }
+  }
+
+  async getHistoryByType(type: string): Promise<any[]> {
+    try {
+      const historyKey = `${type}_history`;
+      const history = await AsyncStorage.getItem(historyKey);
+      return history ? JSON.parse(history) : [];
+    } catch (error) {
+      console.error(`Failed to get ${type} history:`, error);
+      return [];
+    }
+  }
+
+  async clearHistoryByType(type: string): Promise<void> {
+    try {
+      const historyKey = `${type}_history`;
+      await AsyncStorage.removeItem(historyKey);
+    } catch (error) {
+      console.error(`Failed to clear ${type} history:`, error);
+    }
+  }
 }
 
 export const dataStorage = new DataStorageService();
