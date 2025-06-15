@@ -2,8 +2,6 @@ import { SpotifyAuth } from './spotifyAuth';
 import { SpotifyUser, SpotifyTrack, SpotifyArtist, SpotifyPlaylist, MoodPreset } from '../types/spotify';
 import * as SecureStore from 'expo-secure-store';
 import axios, { AxiosRequestConfig } from 'axios';
-import * as FileSystem from 'expo-file-system';
-import { Asset } from 'expo-asset';
 
 // Add Last.fm API key from environment
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
@@ -56,8 +54,20 @@ class SpotifyApiService {
       // Handle 401 Unauthorized
       if (error?.response?.status === 401 && retryCount === 0) {
         console.error('Unauthorized - token may be expired, attempting to refresh...');
+        // Clear the access token to force a refresh
         await SecureStore.deleteItemAsync('spotify_access_token');
+        // Wait a bit to ensure the token is cleared
+        await new Promise(resolve => setTimeout(resolve, 100));
+        // Try the request again with a new token
         return this.makeRequest<T>(endpoint, options, retryCount + 1);
+      }
+
+      // If we get a 403 Forbidden, it might be a scope issue
+      if (error?.response?.status === 403) {
+        console.error('Forbidden - missing required scope, please re-authenticate');
+        // Clear all tokens to force re-authentication
+        await this.auth.clearTokens();
+        throw new Error('Missing required scope. Please log in again.');
       }
 
       throw new Error(`Spotify API error: ${error?.response?.data?.error?.message || error?.message || 'Unknown error'}`);
@@ -186,32 +196,6 @@ class SpotifyApiService {
       })
     });
 
-    // Upload playlist image
-    try {
-      // Load the image asset
-      const asset = Asset.fromModule(require('../assets/images/icon.png'));
-      await asset.downloadAsync();
-
-      if (asset.localUri) {
-        // Read the file as base64
-        const base64 = await FileSystem.readAsStringAsync(asset.localUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        // Upload the image - Spotify expects the base64 string without the data URL prefix
-        await this.makeRequest(`/playlists/${playlist.id}/images`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'image/jpeg',
-          },
-          body: base64
-        });
-      }
-    } catch (error) {
-      console.error('Failed to upload playlist image:', error);
-      // Continue even if image upload fails
-    }
-
     return playlist;
   }
 
@@ -299,37 +283,78 @@ class SpotifyApiService {
     const recommendations: SpotifyTrack[] = [];
     const seenTracks = new Set<string>();
 
-    // Use more seed tracks
-    const seedTracks = userTopTracks.slice(0, 10); // Increased from 5 to 10
+    // Use more seed tracks for better variety
+    const seedTracks = userTopTracks.slice(0, 50);
 
-    for (const track of seedTracks) {
-      // Reduce delay to 100ms
-      await new Promise(resolve => setTimeout(resolve, 100));
+    // Process tracks in batches to avoid rate limiting
+    const batchSize = 5;
+    for (let i = 0; i < seedTracks.length; i += batchSize) {
+      const batch = seedTracks.slice(i, i + batchSize);
 
-      try {
-        const similarTracks = await this.getLastfmSimilarTracks(track.name, track.artists[0].name, 10); // Increased from 5 to 10
+      // Process each track in the batch
+      for (const track of batch) {
+        // Reduce delay to 50ms for faster processing
+        await new Promise(resolve => setTimeout(resolve, 50));
 
-        for (const similarTrack of similarTracks) {
-          if (recommendations.length >= limit) break;
+        try {
+          // Get recommendations directly from Last.fm
+          const similarTracks = await this.getLastfmSimilarTracks(track.name, track.artists[0].name, 20);
 
-          const spotifyTrack = await this.searchSpotifyTrack(similarTrack.name, similarTrack.artist.name);
+          for (const similarTrack of similarTracks) {
+            if (recommendations.length >= limit * 2) break;
 
-          if (spotifyTrack && !seenTracks.has(spotifyTrack.id)) {
-            seenTracks.add(spotifyTrack.id);
-            recommendations.push({
-              ...spotifyTrack,
-              similarity_score: similarTrack.match,
-              source_track: track.name
-            });
+            const spotifyTrack = await this.searchSpotifyTrack(similarTrack.name, similarTrack.artist.name);
+
+            if (spotifyTrack && !seenTracks.has(spotifyTrack.id)) {
+              seenTracks.add(spotifyTrack.id);
+              recommendations.push({
+                ...spotifyTrack,
+                similarity_score: similarTrack.match,
+                source_track: track.name
+              });
+            }
           }
+        } catch (error) {
+          console.error('Error getting track-based recommendations:', error);
+          continue;
         }
-      } catch (error) {
-        console.error('Error getting track-based recommendations:', error);
-        continue;
       }
     }
 
-    return recommendations;
+    // If we don't have enough recommendations, try to get more from the remaining tracks
+    if (recommendations.length < limit && userTopTracks.length > seedTracks.length) {
+      const remainingTracks = userTopTracks.slice(seedTracks.length);
+      for (const track of remainingTracks) {
+        if (recommendations.length >= limit * 2) break;
+
+        try {
+          const similarTracks = await this.getLastfmSimilarTracks(track.name, track.artists[0].name, 15);
+
+          for (const similarTrack of similarTracks) {
+            if (recommendations.length >= limit * 2) break;
+
+            const spotifyTrack = await this.searchSpotifyTrack(similarTrack.name, similarTrack.artist.name);
+
+            if (spotifyTrack && !seenTracks.has(spotifyTrack.id)) {
+              seenTracks.add(spotifyTrack.id);
+              recommendations.push({
+                ...spotifyTrack,
+                similarity_score: similarTrack.match,
+                source_track: track.name
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error getting additional track-based recommendations:', error);
+          continue;
+        }
+      }
+    }
+
+    // Shuffle and return the requested number of recommendations
+    return this.shuffleArray(recommendations)
+      .sort((a, b) => (b.similarity_score || 0) - (a.similarity_score || 0))
+      .slice(0, limit);
   }
 
   // Add method to get user's existing tracks
@@ -479,9 +504,10 @@ class SpotifyApiService {
       topArtists: topArtists.map(a => a.name)
     });
 
+    // Request more recommendations than needed to account for duplicates
     const [trackBased, artistBased] = await Promise.all([
-      this.getTrackBasedRecommendations(this.shuffleArray(topTracks), limit / 2),
-      this.getArtistBasedRecommendations(this.shuffleArray(topArtists), limit / 2)
+      this.getTrackBasedRecommendations(this.shuffleArray(topTracks), limit),
+      this.getArtistBasedRecommendations(this.shuffleArray(topArtists), limit)
     ]);
 
     // Combine and deduplicate recommendations
@@ -489,6 +515,23 @@ class SpotifyApiService {
     const uniqueRecommendations = Array.from(
       new Map(allRecommendations.map(track => [track.id, track])).values()
     );
+
+    // If we don't have enough unique recommendations, try to get more
+    if (uniqueRecommendations.length < limit) {
+      const remainingLimit = limit - uniqueRecommendations.length;
+      const additionalRecommendations = await this.getTrackBasedRecommendations(
+        this.shuffleArray(topTracks),
+        remainingLimit * 2 // Request more to account for potential duplicates
+      );
+
+      // Add new unique recommendations
+      for (const track of additionalRecommendations) {
+        if (uniqueRecommendations.length >= limit) break;
+        if (!uniqueRecommendations.some(t => t.id === track.id)) {
+          uniqueRecommendations.push(track);
+        }
+      }
+    }
 
     // Shuffle and sort by similarity score
     return this.shuffleArray(uniqueRecommendations)

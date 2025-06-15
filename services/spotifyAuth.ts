@@ -69,7 +69,8 @@ const SCOPES = [
   'playlist-modify-private',
   'user-follow-read',
   'user-read-playback-state',
-  'user-modify-playback-state'
+  'user-modify-playback-state',
+  'ugc-image-upload'
 ];
 
 export class SpotifyAuth {

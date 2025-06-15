@@ -111,6 +111,16 @@ export default function HomeScreen() {
   const [songCount, setSongCount] = useState<number>(10);
   const { colors } = useAppTheme();
 
+  // Helper function for shuffling arrays
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
   // Add useEffect to monitor recommendations state
   useEffect(() => {
     console.log('Recommendations state updated:', recommendations.length);
@@ -600,23 +610,26 @@ export default function HomeScreen() {
           case 'recent_playlists':
             if (selectedPlaylist) {
               const playlistTracks = await spotifyApi.getPlaylistTracks(selectedPlaylist);
-              seedTracks = playlistTracks
-                .sort(() => 0.5 - Math.random())
-                .slice(0, 5);
+              // Randomly select 5 tracks from the playlist
+              seedTracks = shuffleArray(playlistTracks).slice(0, 5);
               console.log('Using selected playlist tracks:', seedTracks.length);
             }
             break;
           case 'recent_tracks':
-            seedTracks = topTracksShort;
+          case 'recent_artists':
+            // Get top 10 items and randomly select 5
+            const recentTracks = await spotifyApi.getUserTopTracks('short_term', 10);
+            const recentArtists = await spotifyApi.getUserTopArtists('short_term', 10);
+            seedTracks = shuffleArray(recentTracks).slice(0, 5);
+            seedArtists = shuffleArray(recentArtists).slice(0, 5);
             break;
           case 'alltime_tracks':
-            seedTracks = topTracksLong;
-            break;
-          case 'recent_artists':
-            seedArtists = topArtistsShort;
-            break;
           case 'alltime_artists':
-            seedArtists = topArtistsLong;
+            // Get top 30 items and randomly select 5
+            const allTimeTracks = await spotifyApi.getUserTopTracks('long_term', 30);
+            const allTimeArtists = await spotifyApi.getUserTopArtists('long_term', 30);
+            seedTracks = shuffleArray(allTimeTracks).slice(0, 5);
+            seedArtists = shuffleArray(allTimeArtists).slice(0, 5);
             break;
         }
         // Clear genres and mood when using source-based recommendations

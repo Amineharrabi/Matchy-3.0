@@ -163,7 +163,7 @@ export default function AnalyticsScreen() {
 
     // Calculate monthly stats from history
     const monthlyStats = history.reduce((acc: any[], playlist) => {
-      const date = new Date(playlist.created_at);
+      const date = new Date(playlist.createdAt);
       const monthKey = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
 
       const existingMonth = acc.find(m => m.month === monthKey);
@@ -260,7 +260,7 @@ export default function AnalyticsScreen() {
             <Text style={[styles.title, { color: colors.text }]}>Your Analytics</Text>
           </View>
           <TouchableOpacity
-            onPress={loadAnalyticsData}
+            onPress={() => loadAnalyticsData(true)}
             disabled={isRefreshing}
             style={[styles.refreshButton, { backgroundColor: `${colors.primary}20` }]}
           >
