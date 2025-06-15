@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Image,
   ImageStyle,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSpotify } from '../../hooks/useSpotify';
@@ -21,7 +22,7 @@ import { spotifyApi } from '../../services/spotifyApi';
 import { newsApi } from '../../services/newsApi';
 import { TrackCard } from '../../components/TrackCard';
 import { GenreSelector } from '../../components/GenreSelector';
-import { SpotifyTrack, SpotifyArtist, MusicNews, SpotifyPlaylist } from '../../types/spotify';
+import { SpotifyTrack, SpotifyArtist, MusicNews, SpotifyPlaylist, GeneratedPlaylist } from '../../types/spotify';
 import { dataStorage } from '../../services/dataStorage';
 import { MOOD_PRESETS } from '../../constants/genres';
 import { Music, TrendingUp, Sparkles, Plus, ExternalLink } from 'lucide-react-native';
@@ -80,6 +81,12 @@ interface Styles {
   playlistTitleSelected: TextStyle;
   playlistInfo: TextStyle;
   playlistInfoSelected: TextStyle;
+  songCountContainer: ViewStyle;
+  songCountLabel: TextStyle;
+  songCountInput: TextStyle;
+  songCountControls: ViewStyle;
+  songCountButton: ViewStyle;
+  songCountButtonText: TextStyle;
 }
 
 type RecommendationMode = 'source' | 'genres' | null;
@@ -101,7 +108,16 @@ export default function HomeScreen() {
   const [recSource, setRecSource] = useState<RecSource>('recent_tracks');
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
   const [recommendationMode, setRecommendationMode] = useState<RecommendationMode>(null);
+  const [songCount, setSongCount] = useState<number>(10);
   const { colors } = useAppTheme();
+
+  // Add useEffect to monitor recommendations state
+  useEffect(() => {
+    console.log('Recommendations state updated:', recommendations.length);
+    if (recommendations.length > 0) {
+      console.log('First recommendation:', recommendations[0].name);
+    }
+  }, [recommendations]);
 
   const styles = StyleSheet.create<Styles>({
     container: {
@@ -387,6 +403,49 @@ export default function HomeScreen() {
       color: colors.primary,
       opacity: 0.8,
     },
+    songCountContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginHorizontal: 20,
+      marginTop: 24,
+      marginBottom: 16,
+    },
+    songCountLabel: {
+      fontSize: 16,
+      fontFamily: 'Inter-SemiBold',
+      color: colors.text,
+    },
+    songCountInput: {
+      width: 50,
+      height: 40,
+      textAlign: 'center',
+      fontSize: 16,
+      fontFamily: 'Inter-Medium',
+      color: colors.text,
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    songCountControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    songCountButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    songCountButtonText: {
+      fontSize: 20,
+      fontFamily: 'Inter-Bold',
+      color: colors.textLight,
+    },
   });
 
   useEffect(() => {
@@ -493,6 +552,23 @@ export default function HomeScreen() {
     );
   };
 
+  const handleSongCountChange = (value: string) => {
+    const num = parseInt(value);
+    if (!isNaN(num)) {
+      if (num > 30) setSongCount(30);
+      else if (num < 1) setSongCount(1);
+      else setSongCount(num);
+    }
+  };
+
+  const incrementSongCount = () => {
+    setSongCount(prev => Math.min(prev + 1, 30));
+  };
+
+  const decrementSongCount = () => {
+    setSongCount(prev => Math.max(prev - 1, 1));
+  };
+
   const generateRecommendations = async () => {
     if (!isLoggedIn) {
       Alert.alert('Error', 'Please login to generate recommendations');
@@ -510,9 +586,6 @@ export default function HomeScreen() {
         Alert.alert('Error', 'Please select at least one genre or mood');
         return;
       }
-    } else {
-      Alert.alert('Error', 'Please select either a source or genres/mood to generate recommendations');
-      return;
     }
 
     setIsLoading(true);
@@ -550,25 +623,36 @@ export default function HomeScreen() {
         genres = [];
       }
 
+      // Get mood preset if selected
+      const moodPreset = selectedMood ? MOOD_PRESETS[selectedMood] : undefined;
+      if (moodPreset?.seed_genres) {
+        genres = [...new Set([...genres, ...moodPreset.seed_genres])];
+      }
+
       console.log('Generating recommendations with:', {
         mode: recommendationMode,
         source: recSource,
         seedTracks: seedTracks.length,
         seedArtists: seedArtists.length,
         genres: genres,
-        mood: selectedMood
+        mood: selectedMood,
+        moodPreset: moodPreset,
+        limit: songCount
       });
 
       const recommendations = await spotifyApi.generateRecommendations({
         genres: genres,
         artists: seedArtists,
         tracks: seedTracks,
-        mood: recommendationMode === 'genres' ? selectedMood || undefined : undefined,
-        limit: 20,
+        mood: moodPreset,
+        limit: songCount,
         source: recSource || undefined
       });
 
-      setRecommendations(recommendations);
+      console.log('Received recommendations:', recommendations.length);
+
+      // Force a state update with a new array
+      setRecommendations([...recommendations]);
 
       if (recommendations.length > 0) {
         const historyEntry = {
@@ -577,7 +661,7 @@ export default function HomeScreen() {
           mood: selectedMood || undefined,
           source: recSource,
           playlistId: selectedPlaylist,
-          tracks: recommendations.slice(0, 5)
+          tracks: recommendations
         };
         await dataStorage.appendToHistory('recommendations', historyEntry);
       }
@@ -588,6 +672,8 @@ export default function HomeScreen() {
         ? 'Unable to generate recommendations. Try selecting different options or refreshing the page.'
         : 'Failed to generate recommendations. Please try again.';
       Alert.alert('Error', errorMessage);
+      // Clear recommendations on error
+      setRecommendations([]);
     } finally {
       setIsLoading(false);
     }
@@ -605,6 +691,18 @@ export default function HomeScreen() {
       const playlist = await spotifyApi.createPlaylist(name, recommendations);
 
       if (playlist) {
+        // Store the playlist in history
+        const historyEntry: GeneratedPlaylist = {
+          id: playlist.id,
+          name: playlist.name,
+          description: playlist.description || '',
+          tracks: recommendations,
+          genres: selectedGenres,
+          createdAt: new Date().toISOString(),
+          mood: selectedMood || undefined
+        };
+        await dataStorage.savePlaylistToHistory(historyEntry);
+
         Alert.alert(
           'Success!',
           'Playlist created successfully. Would you like to open it in Spotify?',
@@ -699,7 +797,7 @@ export default function HomeScreen() {
               >
                 <Image
                   source={{
-                    uri: playlist.images?.[0]?.url || 'https://via.placeholder.com/56?text=🎵'
+                    uri: playlist.images?.[0]?.url || 'https://via.placeholder.com/56'
                   }}
                   style={styles.playlistImage}
                 />
@@ -764,6 +862,34 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+        </View>
+
+        {/* Song Count Selector */}
+        <View style={styles.songCountContainer}>
+          <Text style={styles.songCountLabel}>Number of Songs:</Text>
+          <View style={styles.songCountControls}>
+            <TouchableOpacity
+              style={styles.songCountButton}
+              onPress={decrementSongCount}
+              disabled={songCount <= 1}
+            >
+              <Text style={styles.songCountButtonText}>-</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.songCountInput}
+              value={songCount.toString()}
+              onChangeText={handleSongCountChange}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+            <TouchableOpacity
+              style={styles.songCountButton}
+              onPress={incrementSongCount}
+              disabled={songCount >= 30}
+            >
+              <Text style={styles.songCountButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Generate Button */}
@@ -858,7 +984,7 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Music color={colors.primary} size={24} strokeWidth={2} />
-              <Text style={styles.sectionTitle}>Your Top Tracks</Text>
+              <Text style={styles.sectionTitle}>Your recent Tracks</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {topTracksShort.map((track) => (
@@ -876,11 +1002,11 @@ export default function HomeScreen() {
           {renderRecommendationControls()}
 
           {/* Recommendations Display */}
-          {recommendations.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Music color={colors.primary} size={24} strokeWidth={2} />
-                <Text style={styles.sectionTitle}>Your Recommendations</Text>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Music color={colors.primary} size={24} strokeWidth={2} />
+              <Text style={styles.sectionTitle}>Your Recommendations</Text>
+              {recommendations.length > 0 && (
                 <TouchableOpacity
                   onPress={createPlaylist}
                   style={styles.createPlaylistButton}
@@ -889,18 +1015,32 @@ export default function HomeScreen() {
                   <Plus color={colors.primary} size={20} strokeWidth={2} />
                   <Text style={styles.createPlaylistText}>Create Playlist</Text>
                 </TouchableOpacity>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {recommendations.map((track) => (
-                  <TrackCard
-                    key={track.id}
-                    track={track}
-                    onPress={() => Linking.openURL(track.external_urls.spotify)}
-                  />
-                ))}
-              </ScrollView>
+              )}
             </View>
-          )}
+            <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+              {recommendations.length > 0
+                ? `Found ${recommendations.length} recommendations`
+                : 'No recommendations yet'}
+            </Text>
+            {recommendations.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 20 }}
+              >
+                {recommendations.map((track, index) => {
+                  console.log(`Rendering track ${index}:`, track.name);
+                  return (
+                    <TrackCard
+                      key={track.id}
+                      track={track}
+                      onPress={() => Linking.openURL(track.external_urls.spotify)}
+                    />
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>

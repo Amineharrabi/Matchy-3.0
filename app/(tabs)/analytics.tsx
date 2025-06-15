@@ -86,9 +86,17 @@ export default function AnalyticsScreen() {
     }
   }, [isLoggedIn]);
 
-  const loadAnalyticsData = async () => {
+  const loadAnalyticsData = async (forceRefresh: boolean = false) => {
     try {
       setIsRefreshing(true);
+
+      // Try to get cached analytics first
+      const cachedAnalytics = await dataStorage.getAnalytics(forceRefresh);
+      if (cachedAnalytics && !forceRefresh) {
+        setAnalytics(cachedAnalytics);
+        setIsRefreshing(false);
+        return;
+      }
 
       // Load top tracks and artists for all time ranges
       const [
@@ -123,7 +131,7 @@ export default function AnalyticsScreen() {
       const analyticsData = await generateAnalytics(mediumTermTracks, mediumTermArtists);
       setAnalytics(analyticsData);
 
-      // Save analytics to storage
+      // Save analytics to storage with cache
       await dataStorage.saveAnalytics(analyticsData);
     } catch (error) {
       console.error('Failed to load analytics data:', error);
@@ -153,21 +161,53 @@ export default function AnalyticsScreen() {
     // Get history data
     const history = await dataStorage.getPlaylistHistory();
 
-    // Generate monthly stats (mock data for demo)
-    const monthlyStats = [
-      { month: 'Jan 2024', listeningTime: 1200, tracksPlayed: 180 },
-      { month: 'Feb 2024', listeningTime: 1450, tracksPlayed: 220 },
-      { month: 'Mar 2024', listeningTime: 1100, tracksPlayed: 165 },
-      { month: 'Apr 2024', listeningTime: 1600, tracksPlayed: 240 },
-      { month: 'May 2024', listeningTime: 1350, tracksPlayed: 200 },
-      { month: 'Jun 2024', listeningTime: 1800, tracksPlayed: 270 },
-    ];
+    // Calculate monthly stats from history
+    const monthlyStats = history.reduce((acc: any[], playlist) => {
+      const date = new Date(playlist.created_at);
+      const monthKey = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+
+      const existingMonth = acc.find(m => m.month === monthKey);
+      if (existingMonth) {
+        existingMonth.listeningTime += playlist.tracks.reduce((sum, track) => sum + track.duration_ms, 0) / 1000 / 60;
+        existingMonth.tracksPlayed += playlist.tracks.length;
+      } else {
+        acc.push({
+          month: monthKey,
+          listeningTime: playlist.tracks.reduce((sum, track) => sum + track.duration_ms, 0) / 1000 / 60,
+          tracksPlayed: playlist.tracks.length
+        });
+      }
+      return acc;
+    }, []).sort((a, b) => {
+      const [aMonth, aYear] = a.month.split(' ');
+      const [bMonth, bYear] = b.month.split(' ');
+      return new Date(`${aMonth} 1, ${aYear}`).getTime() - new Date(`${bMonth} 1, ${bYear}`).getTime();
+    });
+
+    // Get real play counts from history
+    const trackPlayCounts = new Map<string, number>();
+    const artistPlayCounts = new Map<string, number>();
+
+    history.forEach(playlist => {
+      playlist.tracks.forEach(track => {
+        trackPlayCounts.set(track.id, (trackPlayCounts.get(track.id) || 0) + 1);
+        track.artists.forEach(artist => {
+          artistPlayCounts.set(artist.id, (artistPlayCounts.get(artist.id) || 0) + 1);
+        });
+      });
+    });
 
     return {
       totalListeningTime,
       topGenres,
-      topArtists: artists.slice(0, 10).map(artist => ({ artist, playCount: Math.floor(Math.random() * 100) + 20 })),
-      topTracks: tracks.slice(0, 10).map(track => ({ track, playCount: Math.floor(Math.random() * 50) + 10 })),
+      topArtists: artists.slice(0, 10).map(artist => ({
+        artist,
+        playCount: artistPlayCounts.get(artist.id) || 0
+      })),
+      topTracks: tracks.slice(0, 10).map(track => ({
+        track,
+        playCount: trackPlayCounts.get(track.id) || 0
+      })),
       recommendationsGenerated: history.length,
       playlistsCreated: history.length,
       monthlyStats,

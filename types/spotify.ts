@@ -19,6 +19,10 @@ export interface SpotifyTrack {
   popularity: number;
   is_playable?: boolean; // Some tracks may not have this property, so we make it optional
   available_markets?: string[];
+  similarity_score?: number;
+  source_track?: string;
+  source_artist?: string;
+  source_genre?: string;
 }
 
 export interface SpotifyArtist {

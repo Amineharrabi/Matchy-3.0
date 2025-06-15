@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { SpotifyAuth } from '../services/spotifyAuth';
 import { spotifyApi } from '../services/spotifyApi';
 import type { SpotifyUser } from '../types/spotify';
+import { dataStorage } from '../services/dataStorage';
 
 export function useSpotify() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -63,10 +64,19 @@ export function useSpotify() {
       // First set the states to null/false
       setUser(null);
       setIsLoggedIn(false);
-      // Then clear the auth data
+
+      // Clear all auth data
       await authInstance.current.logout();
+
+      // Clear any cached data
+      await dataStorage.clearAllData();
+
       // Reset initialization flag
       initializationAttempted.current = false;
+
+      // Force a re-render to trigger navigation
+      setIsLoading(true);
+      setTimeout(() => setIsLoading(false), 100);
     } catch (error) {
       console.error('Logout failed:', error);
       throw error;

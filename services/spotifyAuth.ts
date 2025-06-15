@@ -293,12 +293,28 @@ export class SpotifyAuth {
     }
   }
 
-  async clearTokens(): Promise<void> {
+  async logout(): Promise<void> {
     try {
+      // Clear all tokens and auth data
+      await this.clearTokens();
+
+      // Clear any cached data
+      await SecureStore.deleteItemAsync('spotify_user_market');
+
+      // Reset instance state
       this.accessToken = null;
       this.refreshToken = null;
       this.expiryTime = null;
+      this.initialized = false;
+    } catch (error) {
+      console.error('Logout failed:', error);
+      throw error;
+    }
+  }
 
+  async clearTokens(): Promise<void> {
+    try {
+      // Clear all stored tokens
       await Promise.all([
         SecureStore.deleteItemAsync('spotify_access_token'),
         SecureStore.deleteItemAsync('spotify_refresh_token'),
@@ -306,11 +322,8 @@ export class SpotifyAuth {
       ]);
     } catch (error) {
       console.error('Failed to clear tokens:', error);
+      throw error;
     }
-  }
-
-  async logout(): Promise<void> {
-    await this.clearTokens();
   }
 
   isLoggedIn(): boolean {
