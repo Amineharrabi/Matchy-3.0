@@ -10,12 +10,13 @@ import {
 import { useSpotify } from '../../hooks/useSpotify';
 import { useEffect, memo } from 'react';
 import { Platform } from 'react-native';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 function TabLayout() {
   const { user, isLoggedIn } = useSpotify();
   const router = useRouter();
   const isDeveloper = user?.email === process.env.EXPO_PUBLIC_DEVELOPER_EMAIL;
-
+  const { colors } = useAppTheme();
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     if (!isLoggedIn) {
@@ -31,16 +32,18 @@ function TabLayout() {
   if (!isLoggedIn) return null;
 
   return (
+
     <Tabs
+
       screenOptions={{
         headerShown: false,
         lazy: true,
         freezeOnBlur: true,
         tabBarStyle: {
-          backgroundColor: '#000000',
-          borderTopColor: '#333',
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 70 : 60,
+          height: Platform.OS === 'ios' ? 65 : 55,
           paddingBottom: Platform.OS === 'ios' ? 20 : 10,
           paddingTop: 10,
         },
