@@ -15,11 +15,11 @@ A modern music discovery and playlist management app built with Expo and the Spo
 ## Tech Stack
 
 - [Expo](https://expo.dev/) - React Native framework
-- [TypeScript](https://www.typescriptlang.org/) - Type safety
-- [Spotify Web API](https://developer.spotify.com/documentation/web-api/) - Music data and playback
+- [Spotify Web API](https://developer.spotify.com/documentation/web-api/) - Music data and playback and authentification
 - [Expo Auth Session](https://docs.expo.dev/versions/latest/sdk/auth-session/) - OAuth authentication
-- [Lucide Icons](https://lucide.dev/) - Beautiful icons
 - [Expo SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore/) - Secure data storage
+- [LastFm web api](https://docs.expo.dev/versions/latest/sdk/auth-session/) - music matching and recommandations
+
 
 ## Getting Started
 
